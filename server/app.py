@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from flask import Flask, jsonify, request, make_response
+from flask import Flask, jsonify, request, make_response, abort
 from flask_migrate import Migrate
 from flask_restful import Api, Resource
 
@@ -18,11 +18,12 @@ api = Api(app)
 
 
 class Plants(Resource):
-
+    # Get all plants
     def get(self):
         plants = [plant.to_dict() for plant in Plant.query.all()]
         return make_response(jsonify(plants), 200)
 
+    # Create a new plant
     def post(self):
         data = request.get_json()
 
@@ -42,10 +43,40 @@ api.add_resource(Plants, '/plants')
 
 
 class PlantByID(Resource):
-
+    # Get a single plant by ID
     def get(self, id):
-        plant = Plant.query.filter_by(id=id).first().to_dict()
-        return make_response(jsonify(plant), 200)
+        plant = Plant.query.filter_by(id=id).first()
+        if not plant:
+            abort(404, description="Plant not found")
+
+        return make_response(jsonify(plant.to_dict()), 200)
+
+    # Update a plant by ID (PATCH)
+    def patch(self, id):
+        plant = Plant.query.filter_by(id=id).first()
+        if not plant:
+            abort(404, description="Plant not found")
+
+        data = request.get_json()
+
+        # Update plant attributes if present in the request body
+        if 'is_in_stock' in data:
+            plant.is_in_stock = data['is_in_stock']
+
+        db.session.commit()
+
+        return make_response(jsonify(plant.to_dict()), 200)
+
+    # Delete a plant by ID (DELETE)
+    def delete(self, id):
+        plant = Plant.query.filter_by(id=id).first()
+        if not plant:
+            abort(404, description="Plant not found")
+
+        db.session.delete(plant)
+        db.session.commit()
+
+        return make_response('', 204)  # No Content
 
 
 api.add_resource(PlantByID, '/plants/<int:id>')
